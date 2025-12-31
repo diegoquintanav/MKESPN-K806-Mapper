@@ -1,0 +1,38 @@
+{
+  "device_path": "/dev/input/by-id/usb-MKESPN_MKESPN_K815-event-kbd",
+  "enabled": true,
+  "mapping": {
+    "79": {
+      "kind": "command",
+      "value": "\"/home/blmnk/Code/me/MKESPN-K806-Mapper/clockify-scripts/trigger.sh\""
+    },
+    "80": {
+      "kind": "command",
+      "value": "notify-send \"Clockify Trigger\" \"Stopping all current time entries\" && clockify-cli out"
+    },
+    "81": {
+      "kind": "combo",
+      "value": "Super"
+    },
+    "75": {
+      "kind": "combo",
+      "value": "Super+E"
+    },
+    "76": {
+      "kind": "combo",
+      "value": "Super+Tab"
+    },
+    "77": {
+      "kind": "combo",
+      "value": "Alt+Tab"
+    },
+    "71": {
+      "kind": "combo",
+      "value": "Super+L"
+    },
+    "72": {
+      "kind": "combo",
+      "value": "Super+H"
+    }
+  }
+}

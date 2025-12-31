@@ -1,0 +1,15 @@
+# replace USER and path/to with appropriate values before use
+
+[Unit]
+Description=MKESPN K806 Keymap Daemon
+After=graphical-session.target
+
+[Service]
+ExecStart=/usr/bin/python3 /home/USER/path/to/mini_keypad_daemon.py
+Restart=always
+Environment=DISPLAY=:0
+Environment=XAUTHORITY=/home/USER/.Xauthority
+Environment=PATH=/usr/local/bin:/usr/bin:/bin:/home/USER/bin:/home/USER/.local/bin
+
+[Install]
+WantedBy=default.target

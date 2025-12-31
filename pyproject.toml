@@ -1,0 +1,16 @@
+[project]
+name = "mkespn-mapper"
+version = "0.1.0"
+description = "Utils to map keys and commands to MKESPN K806/K815 mini keypads on Linux"
+readme = "README.md"
+requires-python = ">=3.12"
+packages = ["mkespn_mapper"]
+dependencies = [
+    "evdev>=1.9.2",
+    "python-dotenv>=1.2.1",
+]
+
+
+[build-system]
+requires = ["uv_build>=0.9.21,<0.10.0"]
+build-backend = "uv_build"
