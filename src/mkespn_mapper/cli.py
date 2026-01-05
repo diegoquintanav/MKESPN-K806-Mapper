@@ -12,6 +12,14 @@ def list_devices():
     list_devices_info()
 
 
+@app.command()
+def run_daemon():
+    """Run the background daemon to listen to the keypad."""
+    from mkespn_mapper.daemon import main as daemon_main
+
+    daemon_main()
+
+
 @app.callback()
 def callback():
     # https://typer.tiangolo.com/tutorial/commands/one-or-multiple/#one-command-and-one-callback
