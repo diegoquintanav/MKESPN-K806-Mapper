@@ -20,6 +20,14 @@ def run_daemon():
     daemon_main()
 
 
+@app.command()
+def gui():
+    """Launch the GUI application."""
+    from mkespn_mapper.gui import main as gui_main
+
+    gui_main()
+
+
 @app.callback()
 def callback():
     # https://typer.tiangolo.com/tutorial/commands/one-or-multiple/#one-command-and-one-callback
