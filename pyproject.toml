@@ -8,7 +8,11 @@ packages = ["mkespn_mapper"]
 dependencies = [
     "evdev>=1.9.2",
     "python-dotenv>=1.2.1",
+    "typer>=0.21.0",
 ]
+
+[project.scripts]
+mkespn-mapper = "mkespn_mapper.cli:app"
 
 
 [build-system]
