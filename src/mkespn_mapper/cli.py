@@ -1,15 +1,22 @@
-from typer import Typer
+import typer
 
 
-app = Typer(help="MKESPN K806/K815 Key Mapper CLI")
+app = typer.Typer(help="MKESPN K806/K815 Key Mapper CLI")
 
 
 @app.command()
-def list_devices():
+def list_devices(
+    show_all: bool = typer.Option(
+        False,
+        "--all",
+        "-a",
+        help="Show all input devices, not just supported ones",
+    ),
+):
     """List input devices connected to the system."""
     from mkespn_mapper.utils import list_devices_info
 
-    list_devices_info()
+    list_devices_info(show_all=show_all)
 
 
 @app.command()

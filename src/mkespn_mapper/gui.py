@@ -19,6 +19,7 @@ import tkinter as tk
 from dataclasses import dataclass
 from tkinter import messagebox, ttk
 from typing import Dict, List, Optional
+from mkespn_mapper.devices import DeviceMapper
 
 try:
     from evdev import InputDevice, ecodes, list_devices
@@ -29,6 +30,16 @@ except Exception as e:
 
 
 from mkespn_mapper.settings import APP_NAME, CONFIG_PATH
+from mkespn_mapper.core import (
+    KEYSYM_MAP,
+    MOD_MAP,
+    Action,
+    ActionKind,
+    Profile,
+    combo_to_xdotool,
+)
+from mkespn_mapper.devices import MkespnK806
+
 # Icon definitions using Unicode symbols
 ICONS = {
     "save": "💾",
@@ -76,68 +87,6 @@ def create_tooltip(widget, text):
     widget.bind("<Leave>", on_leave)
 
 
-# ---------- Key parsing ----------
-MOD_MAP = {
-    "CTRL": "ctrl",
-    "CONTROL": "ctrl",
-    "ALT": "alt",
-    "SHIFT": "shift",
-    "SUPER": "super",
-    "META": "super",
-    "WIN": "super",
-}
-KEYSYM_MAP = {
-    "TAB": "Tab",
-    "RETURN": "Return",
-    "ENTER": "Return",
-    "ESC": "Escape",
-    "ESCAPE": "Escape",
-    "SPACE": "space",
-    "BACKSPACE": "BackSpace",
-    "BKSP": "BackSpace",
-    "DELETE": "Delete",
-    "DEL": "Delete",
-    "INSERT": "Insert",
-    "INS": "Insert",
-    "HOME": "Home",
-    "END": "End",
-    "PAGEUP": "Prior",
-    "PGUP": "Prior",
-    "PAGEDOWN": "Next",
-    "PGDN": "Next",
-    "LEFT": "Left",
-    "RIGHT": "Right",
-    "UP": "Up",
-    "DOWN": "Down",
-    "PRINTSCREEN": "Print",
-    "PRTSC": "Print",
-    "VOLUMEUP": "XF86AudioRaiseVolume",
-    "VOLUMEDOWN": "XF86AudioLowerVolume",
-    "MUTE": "XF86AudioMute",
-    "PLAY": "XF86AudioPlay",
-    "NEXT": "XF86AudioNext",
-    "PREV": "XF86AudioPrev",
-}
-for i in range(1, 25):
-    KEYSYM_MAP[f"F{i}"] = f"F{i}"
-
-
-def combo_to_xdotool(combo: str) -> str:
-    parts = [p.strip() for p in combo.replace("-", "+").split("+") if p.strip()]
-    out = []
-    for p in parts:
-        u = p.upper()
-        if u in MOD_MAP:
-            out.append(MOD_MAP[u])
-        elif len(p) == 1 and p.isalnum():
-            out.append(p.lower())
-        elif u in KEYSYM_MAP:
-            out.append(KEYSYM_MAP[u])
-        else:
-            out.append(p)
-    return "+".join(out)
-
-
 def get_byid_for_event(event_path: str) -> str:
     """Try to find the /dev/input/by-id symlink that points to this event device"""
     try:
@@ -149,96 +98,14 @@ def get_byid_for_event(event_path: str) -> str:
     return event_path  # fallback to eventX
 
 
-# ---------- Labels & defaults ----------
-# Common key codes for mini keyboards - expand this based on your device
-DEFAULT_LABELS = {
-    # Standard keypad keys
-    ecodes.KEY_KP1: "1",
-    ecodes.KEY_KP2: "2",
-    ecodes.KEY_KP3: "3",
-    ecodes.KEY_KP4: "4",
-    ecodes.KEY_KP5: "5",
-    ecodes.KEY_KP6: "6",
-    ecodes.KEY_KP7: "7",
-    ecodes.KEY_KP8: "8",
-    # Alternative key codes that mini keyboards might use
-    ecodes.KEY_1: "1",
-    ecodes.KEY_2: "2",
-    ecodes.KEY_3: "3",
-    ecodes.KEY_4: "4",
-    ecodes.KEY_5: "5",
-    ecodes.KEY_6: "6",
-    ecodes.KEY_7: "7",
-    ecodes.KEY_8: "8",
-    # Function keys (some mini keyboards use these)
-    ecodes.KEY_F1: "F1",
-    ecodes.KEY_F2: "F2",
-    ecodes.KEY_F3: "F3",
-    ecodes.KEY_F4: "F4",
-    ecodes.KEY_F5: "F5",
-    ecodes.KEY_F6: "F6",
-    ecodes.KEY_F7: "F7",
-    ecodes.KEY_F8: "F8",
-    # Media keys
-    ecodes.KEY_MUTE: "MUTE",
-    ecodes.KEY_VOLUMEUP: "VOL+",
-    ecodes.KEY_VOLUMEDOWN: "VOL-",
-    ecodes.KEY_PLAYPAUSE: "PLAY",
-    ecodes.KEY_NEXTSONG: "NEXT",
-    ecodes.KEY_PREVIOUSSONG: "PREV",
-}
-SUGGESTED_DEFAULTS = {
-    ecodes.KEY_KP1: ("combo", "Ctrl+Alt+T"),
-    ecodes.KEY_KP2: ("combo", "Super+A"),
-    ecodes.KEY_KP3: ("combo", "Super"),
-    ecodes.KEY_KP4: ("combo", "Super+E"),
-    ecodes.KEY_KP5: ("combo", "Super+Tab"),
-    ecodes.KEY_KP6: ("combo", "Alt+Tab"),
-    ecodes.KEY_KP7: ("combo", "Super+L"),
-    ecodes.KEY_KP8: ("combo", "Super+H"),
-}
-
-
-# ---------- Data ----------
-@dataclass
-class Action:
-    kind: str
-    value: str
-
-
-@dataclass
-class Profile:
-    device_path: str = ""
-    enabled: bool = True
-    mapping: Dict[int, Action] = None
-
-    def to_json(self):
-        return {
-            "device_path": self.device_path,
-            "enabled": self.enabled,
-            "mapping": {
-                str(k): {"kind": v.kind, "value": v.value}
-                for k, v in (self.mapping or {}).items()
-            },
-        }
-
-    @staticmethod
-    def from_json(d: dict) -> "Profile":
-        path = d.get("device_path", "")
-        enabled = d.get("enabled", True)
-        mapping = {}
-        for k, v in d.get("mapping", {}).items():
-            mapping[int(k)] = Action(v["kind"], v["value"])
-        if not mapping:
-            mapping = {
-                k: Action(kind, val) for k, (kind, val) in SUGGESTED_DEFAULTS.items()
-            }
-        return Profile(path, enabled, mapping)
-
-
 # ---------- Listener ----------
 class Listener(threading.Thread):
-    def __init__(self, device_path: str, q: queue.Queue, stop_evt: threading.Event):
+    def __init__(
+        self,
+        device_path: str,
+        q: queue.Queue,
+        stop_evt: threading.Event,
+    ):
         super().__init__(daemon=True)
         self.device_path = device_path
         self.q = q
@@ -290,25 +157,40 @@ class Listener(threading.Thread):
         self.q.put(("status", "Listener stopped"))
 
 
+APP_STYLE__SECTION_TFRAME = "Section.TFrame"
+APP_STYLE__TLABEL = "TLabel"
+APP_STYLE__MUTED_TLABEL = "Muted.TLabel"
+APP_STYLE__TITLE_TLABEL = "Title.TLabel"
+APP_STYLE__SECTION_TITLE_TLABEL = "SectionTitle.TLabel"
+APP_STYLE__KEY_TBUTTON = "Key.TButton"
+APP_STYLE__KEY_ACTIVE_TBUTTON = "KeyActive.TButton"
+APP_STYLE__KEY_MAPPED_TBUTTON = "KeyMapped.TButton"
+APP_STYLE__PRIMARY_TBUTTON = "Primary.TButton"
+APP_STYLE__SECONDARY_TBUTTON = "Secondary.TButton"
+APP_STYLE__SUCCESS_TBUTTON = "Success.TButton"
+APP_STYLE__DANGER_TBUTTON = "Danger.TButton"
+
+
 # ---------- App ----------
 class App(tk.Tk):
-    def __init__(self):
+    def __init__(self, device: type[DeviceMapper]):
         super().__init__()
         self.title(APP_NAME)
         self.geometry("1200x750")
         self.minsize(1140, 680)
+        self.device = device
         s = ttk.Style(self)
         s.theme_use("clam")
         self.configure(bg="#f8fafc")
         # Clean, flat design with minimal borders
         s.configure("TFrame", background="#f8fafc")
         s.configure(
-            "Section.TFrame", background="#f8fafc"
+            APP_STYLE__SECTION_TFRAME, background="#f8fafc"
         )  # No borders, just background
         s.configure("TLabel", background="#f8fafc", foreground="#1e293b")
         s.configure("Muted.TLabel", background="#f8fafc", foreground="#64748b")
         s.configure(
-            "Title.TLabel",
+            APP_STYLE__TITLE_TLABEL,
             background="#f8fafc",
             foreground="#0f172a",
             font=("Segoe UI", 16, "bold"),
@@ -330,14 +212,14 @@ class App(tk.Tk):
             foreground=[("!disabled", "#334155")],
         )
         s.configure(
-            "KeyActive.TButton",
+            APP_STYLE__KEY_ACTIVE_TBUTTON,
             padding=16,
             font=("Segoe UI", 12, "bold"),
             background="#10b981",
             relief="flat",
         )
         s.configure(
-            "KeyMapped.TButton",
+            APP_STYLE__KEY_MAPPED_TBUTTON,
             padding=16,
             font=("Segoe UI", 12, "bold"),
             background="#3b82f6",
@@ -346,22 +228,25 @@ class App(tk.Tk):
 
         # Button hierarchy: Primary, Secondary, Danger
         s.configure(
-            "Primary.TButton",
+            APP_STYLE__PRIMARY_TBUTTON,
             padding=(16, 10),
             font=("Segoe UI", 11, "bold"),
             relief="flat",
         )
         s.map(
-            "Primary.TButton",
+            APP_STYLE__PRIMARY_TBUTTON,
             background=[("!disabled", "#2563eb"), ("active", "#1d4ed8")],
             foreground=[("!disabled", "white")],
         )
 
         s.configure(
-            "Secondary.TButton", padding=(12, 8), font=("Segoe UI", 10), relief="flat"
+            APP_STYLE__SECONDARY_TBUTTON,
+            padding=(12, 8),
+            font=("Segoe UI", 10),
+            relief="flat",
         )
         s.map(
-            "Secondary.TButton",
+            APP_STYLE__SECONDARY_TBUTTON,
             background=[("!disabled", "#e2e8f0"), ("active", "#cbd5e1")],
             foreground=[("!disabled", "#475569")],
         )
@@ -396,7 +281,7 @@ class App(tk.Tk):
 
         self._suppress_tree_event = False  # guard re-entrancy
         self.build_ui()
-        self.after(80, self.process_q)
+        self.after(80, self.process_queue)
 
     def list_all_devices(self) -> List[str]:
         entries = []
@@ -415,12 +300,13 @@ class App(tk.Tk):
 
     def build_ui(self):
         # Clean header without borders
-        header = ttk.Frame(self, style="Section.TFrame")
+        header = ttk.Frame(self, style=APP_STYLE__SECTION_TFRAME)
         header.pack(fill="x", padx=24, pady=(20, 0))
-        title_frame = ttk.Frame(header, style="Section.TFrame")
+        title_frame = ttk.Frame(header, style=APP_STYLE__SECTION_TFRAME)
         title_frame.pack(fill="x")
-        ttk.Label(title_frame, text=APP_NAME, style="Title.TLabel").pack(side="left")
-
+        ttk.Label(title_frame, text=APP_NAME, style=APP_STYLE__TITLE_TLABEL).pack(
+            side="left"
+        )
         # Status indicator
         self.status_indicator = ttk.Label(
             title_frame,
@@ -441,15 +327,15 @@ class App(tk.Tk):
         ).pack(anchor="w", pady=(8, 0))
 
         # Device Management - Clean layout with more spacing
-        toolbar = ttk.Frame(self, style="Section.TFrame")
+        toolbar = ttk.Frame(self, style=APP_STYLE__SECTION_TFRAME)
         toolbar.pack(fill="x", padx=24, pady=(24, 0))
 
         # Device selection - simplified layout
-        device_section = ttk.Frame(toolbar, style="Section.TFrame")
+        device_section = ttk.Frame(toolbar, style=APP_STYLE__SECTION_TFRAME)
         device_section.pack(fill="x")
 
         # Top row: Device dropdown and controls with better spacing
-        top_row = ttk.Frame(device_section, style="Section.TFrame")
+        top_row = ttk.Frame(device_section, style=APP_STYLE__SECTION_TFRAME)
         top_row.pack(fill="x", pady=(0, 16))
 
         ttk.Label(top_row, text="Device", style="SectionTitle.TLabel").pack(
@@ -491,7 +377,7 @@ class App(tk.Tk):
         create_tooltip(self.enabled_cb, "Enable/disable key mapping execution")
 
         # Bottom row: Manual path with cleaner spacing
-        bottom_row = ttk.Frame(device_section, style="Section.TFrame")
+        bottom_row = ttk.Frame(device_section, style=APP_STYLE__SECTION_TFRAME)
         bottom_row.pack(fill="x")
 
         ttk.Label(bottom_row, text="Manual Path", style="SectionTitle.TLabel").pack(
@@ -527,27 +413,27 @@ class App(tk.Tk):
         separator.pack(fill="x", padx=24, pady=(24, 0))
 
         # Main content area with generous spacing
-        main = ttk.Frame(self, style="Section.TFrame")
+        main = ttk.Frame(self, style=APP_STYLE__SECTION_TFRAME)
         main.pack(fill="both", expand=True, padx=24, pady=(24, 20))
 
         # Left column: Keypad and Mappings with generous spacing
-        left = ttk.Frame(main, style="Section.TFrame")
+        left = ttk.Frame(main, style=APP_STYLE__SECTION_TFRAME)
         left.pack(side="left", fill="both", expand=True, padx=(0, 24))
 
         # Right column: Editor panel
-        right = ttk.Frame(main, style="Section.TFrame")
+        right = ttk.Frame(main, style=APP_STYLE__SECTION_TFRAME)
         right.pack(side="right", fill="y")
 
         # Keypad section - clean title and spacing
-        keypad_section = ttk.Frame(left, style="Section.TFrame")
+        keypad_section = ttk.Frame(left, style=APP_STYLE__SECTION_TFRAME)
         keypad_section.pack(fill="x", pady=(0, 32))
 
         # Simple section title
-        keypad_title = ttk.Frame(keypad_section, style="Section.TFrame")
+        keypad_title = ttk.Frame(keypad_section, style=APP_STYLE__SECTION_TFRAME)
         keypad_title.pack(fill="x", pady=(0, 16))
-        ttk.Label(keypad_title, text="Keypad Layout", style="SectionTitle.TLabel").pack(
-            side="left"
-        )
+        ttk.Label(
+            keypad_title, text="Keypad Layout", style=APP_STYLE__SECTION_TITLE_TLABEL
+        ).pack(side="left")
         ttk.Label(
             keypad_title,
             text="Click to configure • Blue = mapped",
@@ -555,7 +441,7 @@ class App(tk.Tk):
             font=("Segoe UI", 10),
         ).pack(side="right")
 
-        grid = ttk.Frame(keypad_section, style="Section.TFrame")
+        grid = ttk.Frame(keypad_section, style=APP_STYLE__SECTION_TFRAME)
         grid.pack()
 
         # Get the actual keys from the device or use defaults
@@ -574,28 +460,28 @@ class App(tk.Tk):
             ]
         self.key_buttons: Dict[int, ttk.Button] = {}
         for i, row in enumerate(rows):
-            rf = ttk.Frame(grid, style="Section.TFrame")
+            rf = ttk.Frame(grid, style=APP_STYLE__SECTION_TFRAME)
             rf.pack(pady=8)
             for code in row:
                 btn = ttk.Button(
                     rf,
-                    text=DEFAULT_LABELS.get(code, str(code)),
-                    style="Key.TButton",
+                    text=self.device.DEFAULT_LABELS.get(code, str(code)),
+                    style=APP_STYLE__KEY_TBUTTON,
                     command=lambda c=code: self.select_key(c, source="grid"),
                 )
                 btn.pack(side="left", padx=10)
                 self.key_buttons[code] = btn
                 create_tooltip(
                     btn,
-                    f"Configure key {DEFAULT_LABELS.get(code, str(code))} (code: {code})",
+                    f"Configure key {self.device.DEFAULT_LABELS.get(code, str(code))} (code: {code})",
                 )
 
         # Mappings table section - clean and spacious
-        table_section = ttk.Frame(left, style="Section.TFrame")
+        table_section = ttk.Frame(left, style=APP_STYLE__SECTION_TFRAME)
         table_section.pack(fill="both", expand=True)
 
         # Simple section title with subtle hint
-        table_header = ttk.Frame(table_section, style="Section.TFrame")
+        table_header = ttk.Frame(table_section, style=APP_STYLE__SECTION_TFRAME)
         table_header.pack(fill="x", pady=(0, 16))
         ttk.Label(table_header, text="Key Mappings", style="SectionTitle.TLabel").pack(
             side="left"
@@ -608,7 +494,7 @@ class App(tk.Tk):
         ).pack(side="right")
 
         # Table with clean styling
-        table_frame = ttk.Frame(table_section, style="Section.TFrame")
+        table_frame = ttk.Frame(table_section, style=APP_STYLE__SECTION_TFRAME)
         table_frame.pack(fill="both", expand=True)
 
         self.tree = ttk.Treeview(
@@ -638,13 +524,13 @@ class App(tk.Tk):
         self.tree.bind("<Button-3>", self.on_right_click)
 
         # Clean Action Editor - no borders, just content
-        editor_panel = ttk.Frame(right, style="Section.TFrame")
+        editor_panel = ttk.Frame(right, style=APP_STYLE__SECTION_TFRAME)
         editor_panel.pack(fill="both", expand=True)
 
         # Simple section title
-        ttk.Label(editor_panel, text="Action Editor", style="SectionTitle.TLabel").pack(
-            anchor="w", pady=(0, 20)
-        )
+        ttk.Label(
+            editor_panel, text="Action Editor", style=APP_STYLE__SECTION_TITLE_TLABEL
+        ).pack(anchor="w", pady=(0, 20))
 
         # Form fields with clean styling and good spacing
         self.var_code = tk.IntVar(value=ecodes.KEY_KP1)
@@ -760,7 +646,7 @@ class App(tk.Tk):
 
         # Clean status bar - no border, just text
         self.status = tk.StringVar(value="Ready.")
-        status_frame = ttk.Frame(self, style="Section.TFrame")
+        status_frame = ttk.Frame(self, style=APP_STYLE__SECTION_TFRAME)
         status_frame.pack(fill="x", padx=24, pady=(16, 20))
 
         # Subtle top border for status area
@@ -874,7 +760,7 @@ class App(tk.Tk):
             ):
                 return
 
-        for k, (kind, val) in SUGGESTED_DEFAULTS.items():
+        for k, (kind, val) in self.device.SUGGESTED_DEFAULTS.items():
             self.mapping[k] = Action(kind, val)
         self.refresh_table()
         self.status.set("Applied GNOME defaults.")
@@ -907,7 +793,7 @@ class App(tk.Tk):
         for iid in sels:
             try:
                 code = int(iid)
-                key_names.append(DEFAULT_LABELS.get(code, str(code)))
+                key_names.append(self.device.DEFAULT_LABELS.get(code, str(code)))
             except Exception:
                 pass
 
@@ -942,7 +828,7 @@ class App(tk.Tk):
         try:
             self.tree.delete(*self.tree.get_children())
             for code, act in sorted(self.mapping.items(), key=lambda x: x[0]):
-                label = DEFAULT_LABELS.get(code, f"{code}")
+                label = self.device.DEFAULT_LABELS.get(code, f"{code}")
                 self.tree.insert(
                     "", "end", iid=str(code), values=(label, act.kind, act.value)
                 )
@@ -955,14 +841,14 @@ class App(tk.Tk):
         for code, btn in self.key_buttons.items():
             if code in self.mapping:
                 # Show indicator for mapped keys
-                current_text = DEFAULT_LABELS.get(code, str(code))
+                current_text = self.device.DEFAULT_LABELS.get(code, str(code))
                 btn.configure(
                     text=f"{current_text} {ICONS['mapped']}", style="KeyMapped.TButton"
                 )
             else:
                 # Reset to default for unmapped keys
                 btn.configure(
-                    text=DEFAULT_LABELS.get(code, str(code)), style="Key.TButton"
+                    text=self.device.DEFAULT_LABELS.get(code, str(code)), style="Key.TButton"
                 )
 
     # ---- persistence ----
@@ -994,7 +880,7 @@ class App(tk.Tk):
                 pass
         return Profile(
             mapping={
-                k: Action(kind, val) for k, (kind, val) in SUGGESTED_DEFAULTS.items()
+                k: Action(kind, val) for k, (kind, val) in self.device.SUGGESTED_DEFAULTS.items()
             }
         )
 
@@ -1019,7 +905,7 @@ class App(tk.Tk):
         )
         self._record = True
 
-    def process_q(self):
+    def process_queue(self):
         try:
             while True:
                 kind, payload = self.q.get_nowait()
@@ -1056,13 +942,13 @@ class App(tk.Tk):
                     self.flash_button(code, False)
         except queue.Empty:
             pass
-        self.after(60, self.process_q)
+        self.after(60, self.process_queue)
 
     def get_key_name(self, code: int) -> str:
         """Get a human-readable name for a key code."""
         # Check if it's a known keypad key
-        if code in DEFAULT_LABELS:
-            return DEFAULT_LABELS[code]
+        if code in self.device.DEFAULT_LABELS:
+            return self.device.DEFAULT_LABELS[code]
 
         # Try to get the name from evdev constants
         try:
@@ -1095,12 +981,12 @@ class App(tk.Tk):
                     # If key is mapped, show mapped state
                     btn.configure(style="KeyMapped.TButton")
                     # Update text to show mapping indicator
-                    current_text = DEFAULT_LABELS.get(code, str(code))
+                    current_text = self.device.DEFAULT_LABELS.get(code, str(code))
                     btn.configure(text=f"{current_text} {ICONS['mapped']}")
                 else:
                     # If key is not mapped, show normal state
                     btn.configure(style="Key.TButton")
-                    btn.configure(text=DEFAULT_LABELS.get(code, str(code)))
+                    btn.configure(text=self.device.DEFAULT_LABELS.get(code, str(code)))
                 print(f"[DEBUG] Reset button for key {code}")
         except Exception as e:
             print(f"[DEBUG] Error flashing button {code}: {e}")
@@ -1108,10 +994,10 @@ class App(tk.Tk):
     # ---- execute ----
     def execute(self, act: Action):
         try:
-            if act.kind == "command":
+            if act.kind == ActionKind.COMMAND:
                 subprocess.Popen(act.value, shell=True)
             ##                subprocess.Popen(act.value, shell=True); self.status.set(f"Run: {act.value}")
-            elif act.kind == "combo":
+            elif act.kind == ActionKind.COMBO:
                 seq = combo_to_xdotool(act.value)
                 subprocess.Popen(["xdotool", "key", seq])
                 self.status.set(f"Combo: {act.value}")
@@ -1184,7 +1070,7 @@ class App(tk.Tk):
                     key_codes = caps[ecodes.EV_KEY]
                     # Filter to reasonable keys (avoid mouse buttons, etc.)
                     for code in key_codes:
-                        if code in DEFAULT_LABELS or (
+                        if code in self.device.DEFAULT_LABELS or (
                             code >= ecodes.KEY_1 and code <= ecodes.KEY_F24
                         ):
                             detected.append(code)
@@ -1218,7 +1104,9 @@ class App(tk.Tk):
 
 
 def main():
-    app = App()
+    from mkespn_mapper.devices import MkespnK815
+
+    app = App(device=MkespnK815)
     app.mainloop()
 
 

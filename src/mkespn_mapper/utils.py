@@ -10,12 +10,14 @@ except Exception as e:
     print(f"Requires python3-evdev: sudo apt install -y python3-evdev. Full error: {e}")
     sys.exit(1)
 
+from mkespn_mapper.devices import SUPPORTED_DEVICES
+
 
 def mode_str(mode):
     return stat.filemode(mode)
 
 
-def list_devices_info():
+def list_devices_info(show_all: bool = False):
     print("Enumerating /dev/input/event* ...\n")
     paths = sorted(list_devices())
     if not paths:
@@ -29,8 +31,15 @@ def list_devices_info():
             dev = InputDevice(p)
             caps = dev.capabilities(verbose=True)
             has_keys = any(k == ecodes.EV_KEY for k, _ in caps.items())
+
+            if dev.name.lower() in [name.DEVICE_NAME.lower() for name in SUPPORTED_DEVICES]:
+                marker = "[SUPPORTED DEVICE]"
+            else:
+                marker = ""
+            if marker == "" and not show_all:
+                continue
             print(
-                f"{p}\n  name: {dev.name}\n  phys: {dev.phys}\n  uniq: {dev.uniq}\n  perms: {perms}\n  has EV_KEY: {has_keys}"
+                f"{p}\n  name: {dev.name} {marker}\n  phys: {dev.phys}\n  uniq: {dev.uniq}\n  perms: {perms}\n  has EV_KEY: {has_keys}"
             )
             if has_keys:
                 keys = caps.get(ecodes.EV_KEY, [])

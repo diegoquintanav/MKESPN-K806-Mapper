@@ -1,3 +1,4 @@
+import glob
 import json
 import os
 import subprocess
@@ -15,6 +16,7 @@ MOD_MAP = {
     "META": "super",
     "WIN": "super",
 }
+
 KEYSYM_MAP = {
     "TAB": "Tab",
     "RETURN": "Return",
@@ -22,9 +24,56 @@ KEYSYM_MAP = {
     "ESC": "Escape",
     "ESCAPE": "Escape",
     "SPACE": "space",
+    "BACKSPACE": "BackSpace",
+    "BKSP": "BackSpace",
+    "DELETE": "Delete",
+    "DEL": "Delete",
+    "INSERT": "Insert",
+    "INS": "Insert",
+    "HOME": "Home",
+    "END": "End",
+    "PAGEUP": "Prior",
+    "PGUP": "Prior",
+    "PAGEDOWN": "Next",
+    "PGDN": "Next",
+    "LEFT": "Left",
+    "RIGHT": "Right",
+    "UP": "Up",
+    "DOWN": "Down",
+    "PRINTSCREEN": "Print",
+    "PRTSC": "Print",
+    "VOLUMEUP": "XF86AudioRaiseVolume",
+    "VOLUMEDOWN": "XF86AudioLowerVolume",
+    "MUTE": "XF86AudioMute",
+    "PLAY": "XF86AudioPlay",
+    "NEXT": "XF86AudioNext",
+    "PREV": "XF86AudioPrev",
+    "F1": "F1",
+    "F2": "F2",
+    "F3": "F3",
+    "F4": "F4",
+    "F5": "F5",
+    "F6": "F6",
+    "F7": "F7",
+    "F8": "F8",
+    "F9": "F9",
+    "F10": "F10",
+    "F11": "F11",
+    "F12": "F12",
+    "F13": "F13",
+    "F14": "F14",
+    "F15": "F15",
+    "F16": "F16",
+    "F17": "F17",
+    "F18": "F18",
+    "F19": "F19",
+    "F20": "F20",
+    "F21": "F21",
+    "F22": "F22",
+    "F23": "F23",
+    "F24": "F24",
+    "F25": "F25",
 }
-for i in range(1, 25):
-    KEYSYM_MAP[f"F{i}"] = f"F{i}"
 
 
 class ActionKind(str, Enum):
@@ -52,6 +101,16 @@ class Profile:
         for k, v in d.get("mapping", {}).items():
             mapping[int(k)] = Action(v["kind"], v["value"])
         return Profile(path, enabled, mapping)
+
+    def to_json(self):
+        return {
+            "device_path": self.device_path,
+            "enabled": self.enabled,
+            "mapping": {
+                str(k): {"kind": v.kind, "value": v.value}
+                for k, v in (self.mapping or {}).items()
+            },
+        }
 
     @property
     def absolute_device_path(self) -> Optional[str]:
