@@ -14,4 +14,4 @@ notify-send "Clockify Trigger" "Closing current time entry"
 $CMD out
 
 notify-send "Clockify Trigger" "Starting new time entry: $DESC"
-$CMD in -i=0 -c "$CLIENT_ID" -p "$PROJECT_ID" -d "$DESC" --task "$TASK_ID" --tag "$TAG_ID"
+$CMD in --interactive=0 -c "$CLIENT_ID" -p "$PROJECT_ID" -d "$DESC" --task "$TASK_ID" --tag "$TAG_ID"
