@@ -3,12 +3,12 @@
   "enabled": true,
   "mapping": {
     "79": {
-      "kind": "command",
-      "value": "\"/home/blmnk/Code/me/MKESPN-K806-Mapper/clockify-scripts/trigger.sh\""
+      "kind": "combo",
+      "value": "Ctrl+Alt+T"
     },
     "80": {
-      "kind": "command",
-      "value": "notify-send \"Clockify Trigger\" \"Stopping all current time entries\" && clockify-cli out"
+      "kind": "combo",
+      "value": "Super+A"
     },
     "81": {
       "kind": "combo",
