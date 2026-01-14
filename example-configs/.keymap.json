@@ -1,0 +1,38 @@
+{
+  "device_path": "/dev/input/by-id/usb-MKESPN_MKESPN_K815-event-kbd",
+  "enabled": true,
+  "mapping": {
+    "79": {
+      "kind": "combo",
+      "value": "Ctrl+Alt+T"
+    },
+    "80": {
+      "kind": "combo",
+      "value": "Super+A"
+    },
+    "81": {
+      "kind": "combo",
+      "value": "Super"
+    },
+    "75": {
+      "kind": "combo",
+      "value": "Super+E"
+    },
+    "76": {
+      "kind": "combo",
+      "value": "Super+Tab"
+    },
+    "77": {
+      "kind": "combo",
+      "value": "Alt+Tab"
+    },
+    "71": {
+      "kind": "combo",
+      "value": "Super+L"
+    },
+    "72": {
+      "kind": "combo",
+      "value": "Super+H"
+    }
+  }
+}
